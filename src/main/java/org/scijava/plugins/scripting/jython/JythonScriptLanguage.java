@@ -31,19 +31,18 @@
 
 package org.scijava.plugins.scripting.jython;
 
-import javax.script.ScriptEngine;
-
-import org.python.core.PyBoolean;
-import org.python.core.PyFloat;
-import org.python.core.PyInteger;
-import org.python.core.PyNone;
-import org.python.core.PyObject;
-import org.python.core.PyString;
+import org.python.core.*;
 import org.scijava.Context;
+import org.scijava.command.CommandService;
+import org.scijava.module.ModuleService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.script.AdaptedScriptLanguage;
 import org.scijava.script.ScriptLanguage;
+
+import javax.script.ScriptEngine;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * An adapter of the Jython interpreter to the SciJava scripting interface.
@@ -57,6 +56,8 @@ public class JythonScriptLanguage extends AdaptedScriptLanguage {
 
 	@Parameter
 	private Context context;
+
+	private Map<Class, String> parameters = new HashMap<>();
 
 	public JythonScriptLanguage() {
 		super("jython");
@@ -84,6 +85,73 @@ public class JythonScriptLanguage extends AdaptedScriptLanguage {
 			if (javaType != null) return pyObj.__tojava__(javaType);
 		}
 		return object;
+	}
+
+	@Override
+	public void registerParameter(Class objectClass, String objectVariableName) {
+		if(!parameters.containsKey(objectClass)) parameters.put(objectClass, objectVariableName);
+	}
+
+	@Override
+	public String encodeParameter(Class objectClass) {
+		return "# @" + objectClass.getSimpleName() + " " + getScriptParameter(objectClass);
+	}
+
+	private String getScriptParameter(Class objectClass) {
+		if(!parameters.containsKey(objectClass)) throw new NullPointerException("Parameter of type " + objectClass + " not known to language. Use registerParameter() first.");
+		return parameters.get(objectClass);
+	}
+
+	@Override
+	public String encodeUnknownVariable(final String variable)
+	{
+		return variable + " = ?";
+	}
+
+	@Override
+	public String encodeVariableFromService(String variableName, String serviceVariableName, final String serviceMethodName)
+	{
+		return variableName + " = " + serviceVariableName + "." + serviceMethodName + "()";
+	}
+
+	@Override
+	public String encodeModuleCall(final String moduleName, boolean process, Map<String, Object> inputs, Map<String, String> outputs, Map<Object, String> variables)
+	{
+		String res = "";
+		if(outputs.size() == 1) {
+			res += outputs.keySet().toArray()[0] + " = ";
+		}
+		if(outputs.size() > 1) {
+			res += "modfuture = ";
+		}
+		res += encodeCommandRun(moduleName, process, inputs);
+		if(outputs.size() == 1) {
+			res += ".get().getOutput(\"" + outputs.values().toArray()[0] + "\")";
+		}
+		res += encodeOutputVariables(outputs);
+		return res;
+	}
+
+	private String encodeCommandRun(String command, boolean process, Map<String, Object> inputs) {
+		String res = getScriptParameter(CommandService.class) + ".run(\"" + command + "\", ";
+		res += process ? "True" : "False";
+		if(inputs != null) {
+			for (Map.Entry<String,Object> entry : inputs.entrySet()) {
+				res += ", \"" + entry.getKey() + "\", " + entry.getValue();
+			}
+		}
+		res += ")";
+		return res;
+	}
+
+	private String encodeOutputVariables(Map<String, String> outputs) {
+		if(outputs.size() < 2) return "";
+		String res = "";
+		res += "\nmodres = " + getScriptParameter(ModuleService.class) + ".waitFor(modfuture)";
+		for (Map.Entry<String,String> entry : outputs.entrySet()) {
+			res += "\n" + entry.getKey() + " = modres.getOutput(\"" + entry.getValue() + "\")";
+		}
+		return res;
 	}
 
 }

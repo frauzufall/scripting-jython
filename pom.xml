@@ -5,12 +5,12 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>17.1.1</version>
+		<version>22.3.0</version>
 		<relativePath />
 	</parent>
 
 	<artifactId>scripting-jython</artifactId>
-	<version>0.4.3-SNAPSHOT</version>
+	<version>0.4.4-SNAPSHOT</version>
 
 	<name>SciJava Scripting: Jython</name>
 	<description>JSR-223-compliant Jython scripting language plugin.</description>
@@ -102,6 +102,7 @@ Institute of Molecular Cell Biology and Genetics.</license.copyrightOwners>
 		<dependency>
 			<groupId>org.scijava</groupId>
 			<artifactId>scijava-common</artifactId>
+			<version>2.76.2-SNAPSHOT</version>
 		</dependency>
 
 		<!-- Third-party dependencies -->
